@@ -3,46 +3,49 @@
 import sys
 from collections import deque
 from enum import Enum
+                
+def from_matrix_to_set_list(matrix):
+    set_list = []
+    for row in matrix:
+        current_set = set()
+        for c in range(len(row)):
+            if row[c] != 0:
+                current_set.add(c)
+        set_list.append(current_set)
+    return set_list
 
-def mbase(matrix):
+
+def mbase(set_list):
     maxM = eps_max - 1
     Q = deque()
-    Q.append([0] * len(matrix[0]))
+    Q.append(set())
     while len(Q) > 0:
         father = Q.popleft()
         for e in range(succ(set_max(father)), eps_max):
-            child = [x for x in father]
-            child[e] = 1
-            result = check(matrix, child)
+            child = father | set([e])
+            result = check(set_list, child)
             if result == Result.OK and e != maxM:
                 Q.append(child)
             elif result == Result.MHS:
                 output(child)
 
-def check(matrix, bset):
-    vector = []
-    for row in matrix:
-        count = 0
-        common_element = None
-        for j, (row_elem, ins_elem) in enumerate(zip(row, bset)):
-            if ins_elem != 0 and ins_elem == row_elem:
-                count = count + 1
-                common_element = j
-        if count == 1:
-            vector.append(common_element)
-        elif count == 0:
-            vector.append('Z')
+def check(set_list, sigma):
+    vector = set()
+    for row in set_list:
+        intersection = row & sigma
+        if len(intersection) == 0:
+            vector.add('Z')
+        elif len(intersection) == 1:
+            vector = vector | intersection
         else:
-            vector.append('X')
-
-    for i, elem in enumerate(bset):
-        if elem == 1 and i not in vector:
-            return Result.KO
-    if 'Z' in vector:
+            vector.add('X')
+    if len(vector & sigma) != len(sigma):
+        return Result.KO
+    elif 'Z' in vector:
         return Result.OK
     else:
         return Result.MHS
-    
+
 class Result(Enum):
     OK = 1
     KO = 2
@@ -50,26 +53,15 @@ class Result(Enum):
 
 def set_max(bset):
     result = eps_min
-    for i in range(len(bset)):
-        if bset[i] == 1:
-            result = i
-    return result
-
-def set_min(bset):
-    result = eps_min
-    for i in range(len(bset) - 1, -1, -1):
-        if bset[i] == 1:
-            result = i
+    for element in bset:
+        result = max(element, result)
     return result
 
 def succ(n):
     return n + 1
 
-def pred(n):
-    return n - 1
-
 def cardinality(bset):
-    return sum(bset)
+    return len(bset)
 
 def output(bset):
     global count
@@ -161,8 +153,9 @@ for arg in args:
         matrix = remove_columns(matrix)
     eps_max = len(matrix[0])
     max_cardinality = len(matrix[0])
+    set_list = from_matrix_to_set_list(matrix)
     try:
-        mbase(matrix)
+        mbase(set_list)
     except KeyboardInterrupt:
         pass
     show_results()
