@@ -4,6 +4,86 @@ import sys
 from collections import deque
 from enum import Enum
 
+def mbase(matrix):
+    maxM = eps_max - 1
+    Q = deque()
+    Q.append([0] * len(matrix[0]))
+    while len(Q) > 0:
+        father = Q.popleft()
+        for e in range(succ(set_max(father)), eps_max):
+            child = [x for x in father]
+            child[e] = 1
+            result = check(matrix, child)
+            if result == Result.OK and e != maxM:
+                Q.append(child)
+            elif result == Result.MHS:
+                output(child)
+
+def check(matrix, bset):
+    vector = []
+    for row in matrix:
+        count = 0
+        common_element = None
+        for j, (row_elem, ins_elem) in enumerate(zip(row, bset)):
+            if ins_elem != 0 and ins_elem == row_elem:
+                count = count + 1
+                common_element = j
+        if count == 1:
+            vector.append(common_element)
+        elif count == 0:
+            vector.append('Z')
+        else:
+            vector.append('X')
+
+    for i, elem in enumerate(bset):
+        if elem == 1 and i not in vector:
+            return Result.KO
+    if 'Z' in vector:
+        return Result.OK
+    else:
+        return Result.MHS
+    
+class Result(Enum):
+    OK = 1
+    KO = 2
+    MHS = 3
+
+def set_max(bset):
+    result = eps_min
+    for i in range(len(bset)):
+        if bset[i] == 1:
+            result = i
+    return result
+
+def set_min(bset):
+    result = eps_min
+    for i in range(len(bset) - 1, -1, -1):
+        if bset[i] == 1:
+            result = i
+    return result
+
+def succ(n):
+    return n + 1
+
+def pred(n):
+    return n - 1
+
+def cardinality(bset):
+    return sum(bset)
+
+def output(bset):
+    global count
+    global max_cardinality
+    global min_cardinality
+    count = count + 1
+    min_cardinality = max(min_cardinality, cardinality(bset))
+    max_cardinality = min(max_cardinality, cardinality(bset))
+
+def show_results():
+    print("MHS totali: %d\nCARDINALITA' MINIMA: %d\nCARDINALITA' MASSIMA: %s" % (count, max_cardinality, min_cardinality))
+
+# preprocessing
+
 def parse_matrix_file(filename):
     matrix = []
     with open(filename, 'r') as f:
@@ -15,7 +95,7 @@ def parse_matrix_file(filename):
             matrix.append(row)
     return matrix
 
-def togli_righe(matrix):
+def remove_rows(matrix):
     newmatrix = []
     for row in matrix:
         toremove = False
@@ -37,7 +117,7 @@ def is_subset(subset, superset):
             break
     return result
 
-def togli_colonne(matrix):
+def remove_columns(matrix):
     toremove = set()
     for c in range(len(matrix[0])):
         all_zeros = True
@@ -58,85 +138,6 @@ def togli_colonne(matrix):
             toreturn.append(newrow)
     return toreturn
 
-def max_insieme(insieme):
-    result = eps_min
-    for i in range(len(insieme)):
-        if insieme[i] == 1:
-            result = i
-    return result
-
-def min_insieme(insieme):
-    result = eps_min
-    for i in range(len(insieme) - 1, -1, -1):
-        if insieme[i] == 1:
-            result = i
-    return result
-
-def succ(n):
-    return n + 1
-
-def pred(n):
-    return n - 1
-
-def cardinalita(insieme):
-    return sum(insieme)
-
-class Result(Enum):
-    OK = 1
-    KO = 2
-    MHS = 3
-
-def check(matrix, insieme):
-    vettore = []
-    for row in matrix:
-        count = 0
-        unique_element_common = None
-        for j, (row_elem, ins_elem) in enumerate(zip(row, insieme)):
-            if ins_elem != 0 and ins_elem == row_elem:
-                count = count + 1
-                unique_element_common = j
-        if count == 1:
-            vettore.append(unique_element_common)
-        elif count == 0:
-            vettore.append('Z')
-        else:
-            vettore.append('X')
-
-    for i, elem in enumerate(insieme):
-        if elem == 1 and i not in vettore:
-            return Result.KO
-    if 'Z' in vettore:
-        return Result.OK
-    else:
-        return Result.MHS
-
-    
-def output(insieme):
-    global count
-    global cardinalita_min
-    global cardinalita_max
-    count = count + 1
-    cardinalita_max = max(cardinalita_max, cardinalita(insieme))
-    cardinalita_min = min(cardinalita_min, cardinalita(insieme))
-
-def mostra_risultati():
-    print("MHS totali: %d\nCARDINALITA' MINIMA: %d\n CARDINALITA' MASSIMA: %s" % (count, cardinalita_min, cardinalita_max))
-
-def mbase(matrix):
-    maxM = eps_max - 1
-    Q = deque()
-    Q.append([0] * len(matrix[0]))
-    while len(Q) > 0:
-        father = Q.popleft()
-        for e in range(succ(max_insieme(father)), eps_max):
-            child = [x for x in father]
-            child[e] = 1
-            result = check(matrix, child)
-            if result == Result.OK and e != maxM:
-                Q.append(child)
-            elif result == Result.MHS:
-                output(child)
-
 progname = sys.argv[0]        
 args = sys.argv[1:]
 
@@ -147,21 +148,21 @@ if len(args) == 0:
 eps_min = -1
 eps_max = None
 count = 0
-cardinalita_min = None
-cardinalita_max = 0
-ottimizza = True
+max_cardinality = None
+min_cardinality = 0
+optimize = False
 
 for arg in args:
     matrix = parse_matrix_file(arg)
     if len(matrix) == 0:
         continue
-    if ottimizza:
-        matrix = togli_righe(matrix)
-        matrix = togli_colonne(matrix)
+    if optimize:
+        matrix = remove_rows(matrix)
+        matrix = remove_columns(matrix)
     eps_max = len(matrix[0])
-    cardinalita_min = len(matrix[0])
+    max_cardinality = len(matrix[0])
     try:
         mbase(matrix)
     except KeyboardInterrupt:
         pass
-    mostra_risultati()
+    show_results()
