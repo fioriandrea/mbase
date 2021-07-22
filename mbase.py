@@ -78,6 +78,8 @@ def succ(n):
 def pred(n):
     return n - 1
 
+def cardinalita(insieme):
+    return sum(insieme)
 
 class Result(Enum):
     OK = 1
@@ -111,7 +113,14 @@ def check(matrix, insieme):
     
 def output(insieme):
     global count
+    global cardinalita_min
+    global cardinalita_max
     count = count + 1
+    cardinalita_max = max(cardinalita_max, cardinalita(insieme))
+    cardinalita_min = min(cardinalita_min, cardinalita(insieme))
+
+def mostra_risultati():
+    print("MHS totali: %d\nCARDINALITA' MINIMA: %d\n CARDINALITA' MASSIMA: %s" % (count, cardinalita_min, cardinalita_max))
 
 def mbase(matrix):
     maxM = eps_max - 1
@@ -138,6 +147,8 @@ if len(args) == 0:
 eps_min = -1
 eps_max = None
 count = 0
+cardinalita_min = None
+cardinalita_max = 0
 ottimizza = True
 
 for arg in args:
@@ -148,5 +159,9 @@ for arg in args:
         matrix = togli_righe(matrix)
         matrix = togli_colonne(matrix)
     eps_max = len(matrix[0])
-    mbase(matrix)
-    print(count)
+    cardinalita_min = len(matrix[0])
+    try:
+        mbase(matrix)
+    except KeyboardInterrupt:
+        pass
+    mostra_risultati()
