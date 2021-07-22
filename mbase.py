@@ -24,9 +24,9 @@ def mbase(set_list):
         for e in range(succ(set_max(father)), eps_max):
             child = father | set([e])
             result = check(set_list, child)
-            if result == Result.OK and e != maxM:
+            if result == 'OK' and e != maxM:
                 Q.append(child)
-            elif result == Result.MHS:
+            elif result == 'MHS':
                 output(child)
 
 def check(set_list, sigma):
@@ -40,11 +40,11 @@ def check(set_list, sigma):
         else:
             vector.add('X')
     if len(vector & sigma) != len(sigma):
-        return Result.KO
+        return 'KOO'
     elif 'Z' in vector:
-        return Result.OK
+        return 'OK'
     else:
-        return Result.MHS
+        return 'MHS'
 
 class Result(Enum):
     OK = 1
@@ -64,15 +64,16 @@ def cardinality(bset):
     return len(bset)
 
 def output(bset):
+    print(bset)
     global count
     global max_cardinality
     global min_cardinality
     count = count + 1
-    min_cardinality = max(min_cardinality, cardinality(bset))
-    max_cardinality = min(max_cardinality, cardinality(bset))
+    min_cardinality = min(min_cardinality, cardinality(bset))
+    max_cardinality = max(max_cardinality, cardinality(bset))
 
 def show_results():
-    print("MHS totali: %d\nCARDINALITA' MINIMA: %d\nCARDINALITA' MASSIMA: %s" % (count, max_cardinality, min_cardinality))
+    print("MHS totali: %d\nCARDINALITA' MINIMA: %d\nCARDINALITA' MASSIMA: %s" % (count, min_cardinality, max_cardinality))
 
 # preprocessing
 
@@ -141,7 +142,7 @@ eps_min = -1
 eps_max = None
 count = 0
 max_cardinality = None
-min_cardinality = 0
+min_cardinality = None
 optimize = False
 
 for arg in args:
@@ -152,7 +153,8 @@ for arg in args:
         matrix = remove_rows(matrix)
         matrix = remove_columns(matrix)
     eps_max = len(matrix[0])
-    max_cardinality = len(matrix[0])
+    min_cardinality = len(matrix[0])
+    max_cardinality = 0
     set_list = from_matrix_to_set_list(matrix)
     try:
         mbase(set_list)
