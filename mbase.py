@@ -1,14 +1,8 @@
 #! /usr/bin/python
 
 import sys
-
-def process(filename):
-    matrix = parse_matrix_file(filename)
-    print("parsing")
-    righe_tolte = togli_righe(matrix)
-    print("togli_righe")
-    colonne_tolte = togli_colonne(righe_tolte)
-    print("togli_colonne")
+from collections import deque
+from enum import Enum
 
 def parse_matrix_file(filename):
     matrix = []
@@ -64,6 +58,76 @@ def togli_colonne(matrix):
             toreturn.append(newrow)
     return toreturn
 
+def max_insieme(insieme):
+    result = eps_min
+    for i in range(len(insieme)):
+        if insieme[i] == 1:
+            result = i
+    return result
+
+def min_insieme(insieme):
+    result = eps_min
+    for i in range(len(insieme) - 1, -1, -1):
+        if insieme[i] == 1:
+            result = i
+    return result
+
+def succ(n):
+    return n + 1
+
+def pred(n):
+    return n - 1
+
+
+class Result(Enum):
+    OK = 1
+    KO = 2
+    MHS = 3
+
+def check(matrix, insieme):
+    vettore = []
+    for row in matrix:
+        count = 0
+        unique_element_common = None
+        for j, (row_elem, ins_elem) in enumerate(zip(row, insieme)):
+            if ins_elem != 0 and ins_elem == row_elem:
+                count = count + 1
+                unique_element_common = j
+        if count == 1:
+            vettore.append(unique_element_common)
+        elif count == 0:
+            vettore.append('Z')
+        else:
+            vettore.append('X')
+
+    for i, elem in enumerate(insieme):
+        if elem == 1 and i not in vettore:
+            return Result.KO
+    if 'Z' in vettore:
+        return Result.OK
+    else:
+        return Result.MHS
+
+    
+def output(insieme):
+    global count
+    count = count + 1
+
+def mbase(matrix):
+    maxM = eps_max - 1
+    Q = deque()
+    Q.append([0] * len(matrix[0]))
+    while len(Q) > 0:
+        father = Q.popleft()
+        for e in range(succ(max_insieme(father)), eps_max):
+            child = [x for x in father]
+            child[e] = 1
+            result = check(matrix, child)
+            if result == Result.OK and e != maxM:
+                Q.append(child)
+            elif result == Result.MHS:
+                output(child)
+
 progname = sys.argv[0]        
 args = sys.argv[1:]
 
@@ -71,5 +135,18 @@ if len(args) == 0:
     print("usage: %s FILE..." % (progname), file=sys.stderr)
     sys.exit(1)
 
+eps_min = -1
+eps_max = None
+count = 0
+ottimizza = True
+
 for arg in args:
-    process(arg)
+    matrix = parse_matrix_file(arg)
+    if len(matrix) == 0:
+        continue
+    if ottimizza:
+        matrix = togli_righe(matrix)
+        matrix = togli_colonne(matrix)
+    eps_max = len(matrix[0])
+    mbase(matrix)
+    print(count)
