@@ -80,11 +80,13 @@ def write_header(out_file):
     global matrix_name
     global optimize
     global removed_columns
+    global removed_rows
     print('Elaborazione %s' % ('con preprocessing' if optimize else 'senza preprocessing'), file=out_file)
     print('Matrice: %s' % (matrix_name), file=out_file)
     print('Numero insiemi: %s' % (n_rows), file=out_file)
     print('Numero elementi dominio: %d' % (n_columns + len(removed_columns)), file=out_file)
     if optimize:
+        print('Numero righe rimosse: %d' % len(removed_rows), file=out_file)
         print('Numero colonne rimosse: %d' % len(removed_columns), file=out_file)
     print('', file=out_file)
 
@@ -143,9 +145,9 @@ def set_to_string_symbols(s):
 
 # preprocessing
 
-def remove_rows(matrix):
-    newmatrix = []
-    for row in matrix:
+def rows_to_remove(matrix):
+    result = set()
+    for i, row in enumerate(matrix):
         toremove = False
         for other in matrix:
             if other == row:
@@ -153,9 +155,9 @@ def remove_rows(matrix):
             if is_subset(row, other):
                 toremove = True
                 break
-        if not toremove:
-            newmatrix.append(row)
-    return newmatrix
+        if toremove:
+            result.add(i)
+    return result
 
 def is_subset(subset, superset):
     result = True
@@ -164,6 +166,9 @@ def is_subset(subset, superset):
             result = False
             break
     return result
+
+def remove_rows(matrix, toremove):
+    return [matrix[i] for i in range(len(matrix)) if i not in toremove]
 
 def columns_to_remove(matrix):
     toremove = set()
@@ -177,16 +182,6 @@ def columns_to_remove(matrix):
             toremove.add(c)
     return toremove
 
-def map_start_columns(removed_columns, n_columns):
-    count_before = 0
-    result = [0] * (n_columns - len(removed_columns))
-    for i in range(n_columns - len(removed_columns)):
-        while i + count_before in removed_columns:
-            count_before += 1
-        result[i] = i + count_before
-    return result
-
-
 def remove_columns(matrix, toremove):
     toreturn = []
     for row in matrix:
@@ -197,6 +192,15 @@ def remove_columns(matrix, toremove):
         if len(newrow) != 0:
             toreturn.append(newrow)
     return toreturn
+
+def map_start_columns(removed_columns, n_columns):
+    count_before = 0
+    result = [0] * (n_columns - len(removed_columns))
+    for i in range(n_columns - len(removed_columns)):
+        while i + count_before in removed_columns:
+            count_before += 1
+        result[i] = i + count_before
+    return result
 
 # input parsing
  
@@ -285,6 +289,7 @@ out_file = None
 out_queue = None
 optimize = None
 removed_columns = None
+removed_rows = None
 domain_symbols = None
 start_cols_mapping = None
 execution_time = None
@@ -303,8 +308,10 @@ for arg in args:
         write_prelude(out_file)
         for optimize in (False, True):
             removed_columns = set()
+            removed_rows = set()
             if optimize:
-                matrix = remove_rows(matrix)
+                removed_rows = rows_to_remove(matrix)
+                matrix = remove_rows(matrix, removed_rows)
                 removed_columns = columns_to_remove(matrix)
                 matrix = remove_columns(matrix, removed_columns)
             count = 0
