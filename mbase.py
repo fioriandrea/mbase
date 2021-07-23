@@ -1,8 +1,9 @@
 #! /usr/bin/python
 
-import sys
 from collections import deque
 import os.path
+import pathlib
+import sys
 import time
 
 # algorithm
@@ -123,8 +124,8 @@ def set_to_string(s):
 def set_to_string_matrix(s):
     global n_columns
     global removed_columns
-    global start_cols_mapping
-    s = {start_cols_mapping[elem] for elem in s}
+    global start_columns_map
+    s = {start_columns_map[elem] for elem in s}
     buffer = [None] * (n_columns + len(removed_columns)) 
     for i in range(len(buffer)):
         if i in s:
@@ -135,10 +136,10 @@ def set_to_string_matrix(s):
 
 def set_to_string_symbols(s):
     global domain_symbols
-    global start_cols_mapping
+    global start_columns_map
     buffer = []
     for elem in s:
-        index = start_cols_mapping[elem]
+        index = start_columns_map[elem]
         symbol = domain_symbols[index]
         buffer.append(symbol)
     return '{' + ','.join(buffer) + '}'
@@ -270,13 +271,31 @@ def parse_mapping(line):
 
 # main
 
-progname = sys.argv[0]        
-args = sys.argv[1:]
+def print_usage(file=sys.stdout):
+    global progname
+    print("usage: %s [OPTIONS] FILE..." % (progname), file=file)
 
-if len(args) == 0:
-    print("usage: %s FILE..." % (progname), file=sys.stderr)
-    sys.exit(1)
+def parse_cli_args():
+    global destination_directory
+    global filenames
+    i = 1
+    try:
+        while i < len(sys.argv):
+            if sys.argv[i] == '-d':
+                destination_directory = sys.argv[i + 1]
+                i += 2
+            elif sys.argv[i] == '-h':
+                print_usage()
+                sys.exit(0)
+            else:
+                filenames = sys.argv[i:]
+                break
+    except IndexError:
+        print('expected argument for %s option' % (sys.argv[i]), file=sys.stderr)
+        print_usage(file=sys.stderr)
+        sys.exit(1)
 
+progname = sys.argv[0]
 eps_max = None
 count = None
 max_cardinality = None
@@ -291,18 +310,24 @@ optimize = None
 removed_columns = None
 removed_rows = None
 domain_symbols = None
-start_cols_mapping = None
+start_columns_map = None
 execution_time = None
 prev_execution_time = None
 destination_directory = '.'
 interrupted = False
+filenames = []
 
-import pathlib
+parse_cli_args()
+
+if len(filenames) == 0:
+    print("usage: %s [OPTIONS] FILE..." % (progname), file=sys.stderr)
+    sys.exit(1)
+
 pathlib.Path(destination_directory).mkdir(parents=True, exist_ok=True) 
 
-for arg in args:
-    matrix = parse_matrix_file(arg)
-    matrix_name = os.path.basename(arg)
+for filename in filenames:
+    matrix = parse_matrix_file(filename)
+    matrix_name = os.path.basename(filename)
     out_queue = deque()
     with open(destination_directory + '/' + matrix_name + '.output', 'w') as out_file:
         write_prelude(out_file)
@@ -317,7 +342,7 @@ for arg in args:
             count = 0
             n_rows = len(matrix)
             n_columns = len(matrix[0])
-            start_cols_mapping = map_start_columns(removed_columns, n_columns + len(removed_columns))
+            start_columns_map = map_start_columns(removed_columns, n_columns + len(removed_columns))
             eps_max = n_columns
             min_cardinality = n_columns
             max_cardinality = 0
