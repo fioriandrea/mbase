@@ -64,7 +64,7 @@ def cardinality(bset):
     return len(bset)
 
 def output(bset):
-    print(bset)
+    print(set_to_string(bset))
     global count
     global max_cardinality
     global min_cardinality
@@ -72,15 +72,62 @@ def output(bset):
     min_cardinality = min(min_cardinality, cardinality(bset))
     max_cardinality = max(max_cardinality, cardinality(bset))
 
+def set_to_string(s):
+    global symbol_mapping
+    if symbol_mapping == None:
+        return str(s)
+    buffer = []
+    for elem in s:
+        buffer.append(symbol_mapping[elem])
+    return '{' + ','.join(buffer) + '}'
+
 def show_results():
     print("MHS totali: %d\nCARDINALITA' MINIMA: %d\nCARDINALITA' MASSIMA: %s" % (count, min_cardinality, max_cardinality))
 
 # preprocessing
 
+def parse_mapping(line):
+    i = 0
+    def skip_spaces():
+        nonlocal line
+        nonlocal i
+        while i < len(line) and line[i] in (' ', '\n', '\t'):
+            i = i + 1
+
+    def skip_digits():
+        nonlocal line
+        nonlocal i
+        while i < len(line) and line[i] >= '0' and line[i] <= '9':
+            i = i + 1
+
+    def read_symbol():
+        nonlocal line
+        nonlocal i
+        buffer = []
+        while i < len(line) and line[i] != ')':
+            buffer.append(line[i])
+            i = i + 1
+        return ''.join(buffer)
+
+    global symbol_mapping
+    symbol_mapping = []
+    while i < len(line):
+        skip_spaces()
+        skip_digits()
+        i = i + 1 # salta parentesi (
+        symbol_mapping.append(read_symbol())
+        i = i + 1 # salta parentesi )
+        skip_spaces()
+    return symbol_mapping
+
 def parse_matrix_file(filename):
     matrix = []
     with open(filename, 'r') as f:
         for line in f:
+            if line.startswith(';;; Map'):
+                line = line[len(';;; Map'):]
+                parse_mapping(line)
+                continue
             if line.startswith(';;;') or len(line.strip()) == 0:
                 continue
             row = line.strip().split(' ')[:-1]
@@ -144,6 +191,7 @@ count = 0
 max_cardinality = None
 min_cardinality = None
 optimize = False
+symbol_mapping = None
 
 for arg in args:
     matrix = parse_matrix_file(arg)
