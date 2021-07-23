@@ -2,23 +2,13 @@
 
 import sys
 from collections import deque
-from multiprocessing import Process, Queue
 import signal
 import os.path
 import time
- 
-def from_matrix_to_set_list(matrix):
-    set_list = []
-    for row in matrix:
-        current_set = set()
-        for c in range(len(row)):
-            if row[c] != 0:
-                current_set.add(c)
-        set_list.append(current_set)
-    return set_list
 
+# algorithm
 
-def mbase(set_list):
+def mbase(set_list, eps_max):
     maxM = eps_max - 1
     Q = deque()
     Q.append(set())
@@ -26,13 +16,13 @@ def mbase(set_list):
         father = Q.popleft()
         for e in range(succ(set_max(father)), eps_max):
             child = father | set([e])
-            result = check(set_list, child)
+            result = check(child, set_list)
             if result == 'OK' and e != maxM:
                 Q.append(child)
             elif result == 'MHS':
                 output(child)
 
-def check(set_list, sigma):
+def check(sigma, set_list):
     vector = set()
     for row in set_list:
         intersection = row & sigma
@@ -49,77 +39,56 @@ def check(set_list, sigma):
     else:
         return 'MHS'
 
-def set_max(bset):
-    result = eps_min
-    for element in bset:
-        result = max(element, result)
-    return result
+def set_max(s):
+    if len(s) == 0:
+        return -1
+    return max(s)
 
 def succ(n):
     return n + 1
 
-def cardinality(bset):
-    return len(bset)
-
-def output(bset):
-    global pqueue
-    global count
-    global max_cardinality
-    global min_cardinality
-    count = count + 1
-    min_cardinality = min(min_cardinality, cardinality(bset))
-    max_cardinality = max(max_cardinality, cardinality(bset))
-    pqueue.put(bset)
+def cardinality(s):
+    return len(s)
 
 def set_to_string(s):
     return str(s)
 
-def write_header(f, matrix_name, matrix, optimize):
-    print('Matrice: %s' % (matrix_name), file=f)
-    print('Numero insiemi: %s' % (len(matrix)), file=f)
-    print('Numero elementi dominio: %s' % (len(matrix[0])), file=f)
-    print('', file=f)
-    print('Inizio elaborazione (%s)' % ('con preprocessing' if optimize else 'senza preprocessing'), file=f)
-    print('', file=f)
+# file output
 
-def write_trailer(f, count, min_cardinality, max_cardinality, execution_time):
-    print('Numero hitting set trovati: %d' % (count), file=f)
-    print('Cardinalità minima: %d' % (min_cardinality), file=f)
-    print('Cardinalità massima: %d' % (max_cardinality), file=f)
-    print('Tempo di esecuzione: %f secondi' % (execution_time), file=f)
-    print('--------------------------------', file=f)
+def output(s):
+    global count
+    global max_cardinality
+    global min_cardinality
+    global out_file
+    global out_queue
+    count = count + 1
+    min_cardinality = min(min_cardinality, cardinality(s))
+    max_cardinality = max(max_cardinality, cardinality(s))
+    out_queue.append(s)
+    if len(out_queue) > 100000:
+        dump_out_queue(out_queue, out_file)
 
-def file_writer(pqueue, matrix_name, matrix, optimize):
-    signal.signal(signal.SIGINT, signal.SIG_IGN)
-    filename = matrix_name + '.output'
-    with open(filename, 'w') as f:
-        write_header(f, matrix_name, matrix, optimize)
-        write_header(sys.stdout, matrix_name, matrix, optimize)
-        while True:
-            s = pqueue.get()
-            if s == 'COMPLETED':
-                break
-            print(set_to_string(s), file=f)
-        count = pqueue.get()
-        min_cardinality = pqueue.get()
-        max_cardinality = pqueue.get()
-        execution_time = pqueue.get()
-        print('', file=f)
-        write_trailer(f, count, min_cardinality, max_cardinality, execution_time)
-        write_trailer(sys.stdout, count, min_cardinality, max_cardinality, execution_time)
+def write_header(out_file, matrix, matrix_name, optimize):
+    print('Matrice: %s' % (matrix_name), file=out_file)
+    print('Numero insiemi: %s' % (len(matrix)), file=out_file)
+    print('Numero elementi dominio: %s' % (len(matrix[0])), file=out_file)
+    print('', file=out_file)
+    print('Inizio elaborazione (%s)' % ('con preprocessing' if optimize else 'senza preprocessing'), file=out_file)
+    print('', file=out_file)
+
+def write_trailer(out_file, count, min_cardinality, max_cardinality, execution_time):
+    print('', file=out_file)
+    print('Numero hitting set trovati: %d' % (count), file=out_file)
+    print('Cardinalità minima: %d' % (min_cardinality), file=out_file)
+    print('Cardinalità massima: %d' % (max_cardinality), file=out_file)
+    print('Tempo di esecuzione: %f secondi' % (execution_time), file=out_file)
+    print('--------------------------------', file=out_file)
+
+def dump_out_queue(out_queue, out_file):
+    while len(out_queue) > 0:
+        print(set_to_string(out_queue.popleft()), file=out_file)
 
 # preprocessing
-
-def parse_matrix_file(filename):
-    matrix = []
-    with open(filename, 'r') as f:
-        for line in f:
-            if line.startswith(';;;') or len(line.strip()) == 0:
-                continue
-            row = line.strip().split(' ')[:-1]
-            row = [int(x) for x in row]
-            matrix.append(row)
-    return matrix
 
 def remove_rows(matrix):
     newmatrix = []
@@ -164,6 +133,32 @@ def remove_columns(matrix):
             toreturn.append(newrow)
     return toreturn
 
+# input parsing
+ 
+def from_matrix_to_set_list(matrix):
+    set_list = []
+    for row in matrix:
+        current_set = set()
+        for c in range(len(row)):
+            if row[c] != 0:
+                current_set.add(c)
+        set_list.append(current_set)
+    return set_list
+
+def parse_matrix_file(filename):
+    matrix = []
+    with open(filename, 'r') as out_file:
+        for line in out_file:
+            if line.startswith(';;;') or len(line.strip()) == 0:
+                continue
+            row = line.strip().split(' ')[:-1]
+            row = [int(x) for x in row]
+            matrix.append(row)
+    return matrix
+
+
+# main
+
 progname = sys.argv[0]        
 args = sys.argv[1:]
 
@@ -171,45 +166,40 @@ if len(args) == 0:
     print("usage: %s FILE..." % (progname), file=sys.stderr)
     sys.exit(1)
 
-eps_min = None
 eps_max = None
 count = None
 max_cardinality = None
 min_cardinality = None
+matrix_name = None
 matrix = None
-pqueue = None
+out_queue = None
 
 for arg in args:
     matrix = parse_matrix_file(arg)
-    previous_execution_time = None
-    for optimize in (False, True):
-        start_time = time.time()
-        if len(matrix) == 0:
-            continue
-        if optimize:
-            matrix = remove_rows(matrix)
-            matrix = remove_columns(matrix)
-        count = 0
-        eps_min = -1
-        eps_max = len(matrix[0])
-        min_cardinality = len(matrix[0])
-        max_cardinality = 0
-        set_list = from_matrix_to_set_list(matrix)
-        pqueue = Queue()
-        matrix_name = os.path.basename(arg) + (".optimized" if optimize else "")
-        writer = Process(target=file_writer, args=(pqueue, matrix_name, matrix, optimize))
-        writer.start()
-        try:
-            mbase(set_list)
-        except KeyboardInterrupt:
-            pass
-        current_execution_time = time.time() - start_time
-        pqueue.put('COMPLETED')
-        pqueue.put(count)
-        pqueue.put(min_cardinality)
-        pqueue.put(max_cardinality)
-        pqueue.put(current_execution_time)
-        writer.join()
-        if optimize:
-            print('Guadagno in esecuzione per il preprocessing: %f secondi' % (previous_execution_time - current_execution_time))
-        previous_execution_time = current_execution_time
+    matrix_name = os.path.basename(arg)
+    out_queue = deque()
+    with open(matrix_name + '.output', 'w') as out_file:
+        for optimize in (False, True):
+            start_time = time.time()
+            if len(matrix) == 0:
+                continue
+            if optimize:
+                matrix = remove_rows(matrix)
+                matrix = remove_columns(matrix)
+            count = 0
+            eps_max = len(matrix[0])
+            min_cardinality = len(matrix[0])
+            max_cardinality = 0
+            set_list = from_matrix_to_set_list(matrix)
+            try:
+                print('Inizio elaborazione (%s)' % ('con preprocessing' if optimize else 'senza preprocessing'))
+                write_header(out_file, matrix, matrix_name, optimize)
+                mbase(set_list, eps_max)
+            except KeyboardInterrupt:
+                print('Esecuzione interrotta')
+                sys.exit(0)
+            finally:
+                dump_out_queue(out_queue, out_file)
+                print('Fine elaborazione (%s)' % ('con preprocessing' if optimize else 'senza preprocessing'))
+                execution_time = time.time() - start_time
+                write_trailer(out_file, count, min_cardinality, max_cardinality, execution_time)
