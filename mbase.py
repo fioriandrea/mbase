@@ -2,8 +2,10 @@
 
 import sys
 from collections import deque
-from enum import Enum
-                
+from multiprocessing import Process, Queue
+import signal
+import os.path
+ 
 def from_matrix_to_set_list(matrix):
     set_list = []
     for row in matrix:
@@ -40,16 +42,11 @@ def check(set_list, sigma):
         else:
             vector.add('X')
     if len(vector & sigma) != len(sigma):
-        return 'KOO'
+        return 'KO'
     elif 'Z' in vector:
         return 'OK'
     else:
         return 'MHS'
-
-class Result(Enum):
-    OK = 1
-    KO = 2
-    MHS = 3
 
 def set_max(bset):
     result = eps_min
@@ -64,13 +61,14 @@ def cardinality(bset):
     return len(bset)
 
 def output(bset):
-    print(set_to_string(bset))
+    global pqueue
     global count
     global max_cardinality
     global min_cardinality
     count = count + 1
     min_cardinality = min(min_cardinality, cardinality(bset))
     max_cardinality = max(max_cardinality, cardinality(bset))
+    pqueue.put(bset)
 
 def set_to_string(s):
     global symbol_mapping
@@ -81,8 +79,29 @@ def set_to_string(s):
         buffer.append(symbol_mapping[elem])
     return '{' + ','.join(buffer) + '}'
 
-def show_results():
-    print("MHS totali: %d\nCARDINALITA' MINIMA: %d\nCARDINALITA' MASSIMA: %s" % (count, min_cardinality, max_cardinality))
+def file_writer(pqueue, matrix_name, matrix, optimize):
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+    filename = matrix_name + '.output.txt'
+    print(filename)
+    with open(filename, 'w') as f:
+        print('Matrice: %s' % (matrix_name), file=f)
+        print('Numero insiemi: %s' % (len(matrix)), file=f)
+        print('Numero elementi dominio: %s' % (len(matrix[0])), file=f)
+        if optimize:
+            print('Inizio elaborazione (con preprocessing)', file=f)
+        else:
+            print('Inizio elaborazione (senza preprocessing)', file=f)
+        while True:
+            s = pqueue.get()
+            if s == 'COMPLETED':
+                break
+            print(set_to_string(s), file=f)
+        count = pqueue.get()
+        min_cardinality = pqueue.get()
+        max_cardinality = pqueue.get()
+        print('Numero hitting set trovati: %d' % (count), file=f)
+        print('Cardinalità minima: %d' % (min_cardinality), file=f)
+        print('Cardinalità massima: %d' % (max_cardinality), file=f)
 
 # preprocessing
 
@@ -192,6 +211,8 @@ max_cardinality = None
 min_cardinality = None
 optimize = False
 symbol_mapping = None
+matrix = None
+pqueue = None
 
 for arg in args:
     matrix = parse_matrix_file(arg)
@@ -204,8 +225,15 @@ for arg in args:
     min_cardinality = len(matrix[0])
     max_cardinality = 0
     set_list = from_matrix_to_set_list(matrix)
+    pqueue = Queue()
+    matrix_name = os.path.basename(arg)
+    writer = Process(target=file_writer, args=(pqueue, matrix_name, matrix, optimize))
+    writer.start()
     try:
         mbase(set_list)
     except KeyboardInterrupt:
         pass
-    show_results()
+    pqueue.put('COMPLETED')
+    pqueue.put(count)
+    pqueue.put(min_cardinality)
+    pqueue.put(max_cardinality)
