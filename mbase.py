@@ -5,6 +5,7 @@ from collections import deque
 from multiprocessing import Process, Queue
 import signal
 import os.path
+import time
  
 def from_matrix_to_set_list(matrix):
     set_list = []
@@ -80,6 +81,7 @@ def set_to_string(s):
     return '{' + ','.join(buffer) + '}'
 
 def file_writer(pqueue, matrix_name, matrix, optimize):
+    # TODO: da ripulire
     signal.signal(signal.SIGINT, signal.SIG_IGN)
     filename = matrix_name + '.output.txt'
     print(filename)
@@ -99,9 +101,11 @@ def file_writer(pqueue, matrix_name, matrix, optimize):
         count = pqueue.get()
         min_cardinality = pqueue.get()
         max_cardinality = pqueue.get()
+        execution_time = pqueue.get()
         print('Numero hitting set trovati: %d' % (count), file=f)
         print('Cardinalità minima: %d' % (min_cardinality), file=f)
         print('Cardinalità massima: %d' % (max_cardinality), file=f)
+        print('Tempo di esecuzione: %f secondi' % (execution_time), file=f)
 
 # preprocessing
 
@@ -209,31 +213,37 @@ eps_max = None
 count = 0
 max_cardinality = None
 min_cardinality = None
-optimize = False
 symbol_mapping = None
 matrix = None
 pqueue = None
 
 for arg in args:
     matrix = parse_matrix_file(arg)
-    if len(matrix) == 0:
-        continue
-    if optimize:
-        matrix = remove_rows(matrix)
-        matrix = remove_columns(matrix)
-    eps_max = len(matrix[0])
-    min_cardinality = len(matrix[0])
-    max_cardinality = 0
-    set_list = from_matrix_to_set_list(matrix)
-    pqueue = Queue()
-    matrix_name = os.path.basename(arg)
-    writer = Process(target=file_writer, args=(pqueue, matrix_name, matrix, optimize))
-    writer.start()
-    try:
-        mbase(set_list)
-    except KeyboardInterrupt:
-        pass
-    pqueue.put('COMPLETED')
-    pqueue.put(count)
-    pqueue.put(min_cardinality)
-    pqueue.put(max_cardinality)
+    # TODO da ripulire
+    for optimize in (False, True):
+        start_time = time.time()
+        if len(matrix) == 0:
+            continue
+        if optimize:
+            matrix = remove_rows(matrix)
+            matrix = remove_columns(matrix)
+        eps_max = len(matrix[0])
+        min_cardinality = len(matrix[0])
+        max_cardinality = 0
+        set_list = from_matrix_to_set_list(matrix)
+        pqueue = Queue()
+        # TODO da ripulire
+        matrix_name = os.path.basename(arg) + ("_optimized" if optimize else "")
+        writer = Process(target=file_writer, args=(pqueue, matrix_name, matrix, optimize))
+        writer.start()
+        try:
+            mbase(set_list)
+        except KeyboardInterrupt:
+            pass
+        # TODO da ripulire
+        pqueue.put('COMPLETED')
+        pqueue.put(count)
+        pqueue.put(min_cardinality)
+        pqueue.put(max_cardinality)
+        pqueue.put(time.time() - start_time)
+        writer.join()
