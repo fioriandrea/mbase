@@ -2,7 +2,6 @@
 
 import sys
 from collections import deque
-import signal
 import os.path
 import time
 
@@ -50,9 +49,6 @@ def succ(n):
 def cardinality(s):
     return len(s)
 
-def set_to_string(s):
-    return str(s)
-
 # file output
 
 def output(s):
@@ -68,25 +64,82 @@ def output(s):
     if len(out_queue) > 100000:
         dump_out_queue(out_queue, out_file)
 
-def write_header(out_file, matrix, matrix_name, optimize):
+def write_prelude(out_file):
+    global matrix_name
+    global domain_symbols
+    global matrix
     print('Matrice: %s' % (matrix_name), file=out_file)
-    print('Numero insiemi: %s' % (len(matrix)), file=out_file)
-    print('Numero elementi dominio: %s' % (len(matrix[0])), file=out_file)
-    print('', file=out_file)
-    print('Inizio elaborazione (%s)' % ('con preprocessing' if optimize else 'senza preprocessing'), file=out_file)
+    print('Dominio: %s' % (str(domain_symbols)), file=out_file)
+    print('Numero di insiemi: %d' % (len(matrix)), file=out_file)
+    print('Numero di elementi nel dominio: %d' % (len(domain_symbols)), file=out_file)
     print('', file=out_file)
 
-def write_trailer(out_file, count, min_cardinality, max_cardinality, execution_time):
+def write_header(out_file):
+    global n_rows
+    global n_columns
+    global matrix_name
+    global optimize
+    global removed_columns
+    print('Elaborazione %s' % ('con preprocessing' if optimize else 'senza preprocessing'), file=out_file)
+    print('Matrice: %s' % (matrix_name), file=out_file)
+    print('Numero insiemi: %s' % (n_rows), file=out_file)
+    print('Numero elementi dominio: %d' % (n_columns + len(removed_columns)), file=out_file)
+    if optimize:
+        print('Numero colonne rimosse: %d' % len(removed_columns), file=out_file)
     print('', file=out_file)
+
+def write_trailer(out_file):
+    global count
+    global min_cardinality
+    global max_cardinality
+    global execution_time
+    global prev_execution_time
+    global optimize
+    global interrupted
+    print('', file=out_file)
+    if interrupted:
+        print('Esecuzione interrotta prematuramente\n', file=out_file)
     print('Numero hitting set trovati: %d' % (count), file=out_file)
     print('Cardinalità minima: %d' % (min_cardinality), file=out_file)
     print('Cardinalità massima: %d' % (max_cardinality), file=out_file)
     print('Tempo di esecuzione: %f secondi' % (execution_time), file=out_file)
+    if optimize:
+        print('Guadagno in tempo di esecuzione: %f secondi' % (prev_execution_time - execution_time), file=out_file)
     print('--------------------------------', file=out_file)
 
 def dump_out_queue(out_queue, out_file):
     while len(out_queue) > 0:
         print(set_to_string(out_queue.popleft()), file=out_file)
+
+def set_to_string(s):
+    global domain_symbols
+    if domain_symbols:
+        return set_to_string_symbols(s)
+    else:
+        return set_to_string_matrix(s)
+
+def set_to_string_matrix(s):
+    global n_columns
+    global removed_columns
+    global start_cols_mapping
+    s = {start_cols_mapping[elem] for elem in s}
+    buffer = [None] * (n_columns + len(removed_columns)) 
+    for i in range(len(buffer)):
+        if i in s:
+            buffer[i] = '1'
+        else:
+            buffer[i] = '0'
+    return ' '.join(buffer) + ' -'
+
+def set_to_string_symbols(s):
+    global domain_symbols
+    global start_cols_mapping
+    buffer = []
+    for elem in s:
+        index = start_cols_mapping[elem]
+        symbol = domain_symbols[index]
+        buffer.append(symbol)
+    return '{' + ','.join(buffer) + '}'
 
 # preprocessing
 
@@ -112,7 +165,7 @@ def is_subset(subset, superset):
             break
     return result
 
-def remove_columns(matrix):
+def columns_to_remove(matrix):
     toremove = set()
     for c in range(len(matrix[0])):
         all_zeros = True
@@ -122,7 +175,19 @@ def remove_columns(matrix):
                 break
         if all_zeros:
             toremove.add(c)
+    return toremove
 
+def map_start_columns(removed_columns, n_columns):
+    count_before = 0
+    result = [0] * (n_columns - len(removed_columns))
+    for i in range(n_columns - len(removed_columns)):
+        while i + count_before in removed_columns:
+            count_before += 1
+        result[i] = i + count_before
+    return result
+
+
+def remove_columns(matrix, toremove):
     toreturn = []
     for row in matrix:
         newrow = []
@@ -146,16 +211,58 @@ def from_matrix_to_set_list(matrix):
     return set_list
 
 def parse_matrix_file(filename):
+    global domain_symbols
+    global matrix
     matrix = []
     with open(filename, 'r') as out_file:
         for line in out_file:
+            if line.startswith(';;; Map'):
+                line = line[len(';;; Map'):]
+                domain_symbols = parse_mapping(line)
+                continue
             if line.startswith(';;;') or len(line.strip()) == 0:
                 continue
             row = line.strip().split(' ')[:-1]
             row = [int(x) for x in row]
             matrix.append(row)
+    if domain_symbols == None:
+        domain_symbols = [str(i + 1) for i in range(len(matrix[0]))]
+    for i in range(len(matrix[0]) - len(domain_symbols)):
+        domain_symbols.append('unlisted' + str(i + 1))
     return matrix
 
+def parse_mapping(line):
+    i = 0
+    def skip_spaces():
+        nonlocal line
+        nonlocal i
+        while i < len(line) and line[i] in (' ', '\n', '\t'):
+            i = i + 1
+
+    def skip_digits():
+        nonlocal line
+        nonlocal i
+        while i < len(line) and line[i] >= '0' and line[i] <= '9':
+            i = i + 1
+
+    def read_symbol():
+        nonlocal line
+        nonlocal i
+        buffer = []
+        while i < len(line) and line[i] != ')':
+            buffer.append(line[i])
+            i = i + 1
+        return ''.join(buffer)
+
+    domain_symbols = []
+    while i < len(line):
+        skip_spaces()
+        skip_digits()
+        i = i + 1 # salta parentesi (
+        domain_symbols.append(read_symbol())
+        i = i + 1 # salta parentesi )
+        skip_spaces()
+    return domain_symbols
 
 # main
 
@@ -170,36 +277,56 @@ eps_max = None
 count = None
 max_cardinality = None
 min_cardinality = None
+n_rows = None
+n_columns = None
 matrix_name = None
 matrix = None
+out_file = None
 out_queue = None
+optimize = None
+removed_columns = None
+domain_symbols = None
+start_cols_mapping = None
+execution_time = None
+prev_execution_time = None
+destination_directory = '.'
+interrupted = False
+
+import pathlib
+pathlib.Path(destination_directory).mkdir(parents=True, exist_ok=True) 
 
 for arg in args:
     matrix = parse_matrix_file(arg)
     matrix_name = os.path.basename(arg)
     out_queue = deque()
-    with open(matrix_name + '.output', 'w') as out_file:
+    with open(destination_directory + '/' + matrix_name + '.output', 'w') as out_file:
+        write_prelude(out_file)
         for optimize in (False, True):
-            start_time = time.time()
-            if len(matrix) == 0:
-                continue
+            removed_columns = set()
             if optimize:
                 matrix = remove_rows(matrix)
-                matrix = remove_columns(matrix)
+                removed_columns = columns_to_remove(matrix)
+                matrix = remove_columns(matrix, removed_columns)
             count = 0
-            eps_max = len(matrix[0])
-            min_cardinality = len(matrix[0])
+            n_rows = len(matrix)
+            n_columns = len(matrix[0])
+            start_cols_mapping = map_start_columns(removed_columns, n_columns + len(removed_columns))
+            eps_max = n_columns
+            min_cardinality = n_columns
             max_cardinality = 0
             set_list = from_matrix_to_set_list(matrix)
+            start_time = time.time()
             try:
-                print('Inizio elaborazione (%s)' % ('con preprocessing' if optimize else 'senza preprocessing'))
-                write_header(out_file, matrix, matrix_name, optimize)
+                print('Inizio elaborazione %s (%s)' % (matrix_name, 'con preprocessing' if optimize else 'senza preprocessing'))
+                write_header(out_file)
                 mbase(set_list, eps_max)
             except KeyboardInterrupt:
                 print('Esecuzione interrotta')
+                interrupted = True
                 sys.exit(0)
             finally:
                 dump_out_queue(out_queue, out_file)
-                print('Fine elaborazione (%s)' % ('con preprocessing' if optimize else 'senza preprocessing'))
+                print('Fine elaborazione %s (%s)' % (matrix_name, 'con preprocessing' if optimize else 'senza preprocessing'))
+                prev_execution_time = execution_time
                 execution_time = time.time() - start_time
-                write_trailer(out_file, count, min_cardinality, max_cardinality, execution_time)
+                write_trailer(out_file)
