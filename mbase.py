@@ -171,9 +171,9 @@ if len(args) == 0:
     print("usage: %s FILE..." % (progname), file=sys.stderr)
     sys.exit(1)
 
-eps_min = -1
+eps_min = None
 eps_max = None
-count = 0
+count = None
 max_cardinality = None
 min_cardinality = None
 matrix = None
@@ -189,6 +189,8 @@ for arg in args:
         if optimize:
             matrix = remove_rows(matrix)
             matrix = remove_columns(matrix)
+        count = 0
+        eps_min = -1
         eps_max = len(matrix[0])
         min_cardinality = len(matrix[0])
         max_cardinality = 0
@@ -201,11 +203,11 @@ for arg in args:
             mbase(set_list)
         except KeyboardInterrupt:
             pass
+        current_execution_time = time.time() - start_time
         pqueue.put('COMPLETED')
         pqueue.put(count)
         pqueue.put(min_cardinality)
         pqueue.put(max_cardinality)
-        current_execution_time = time.time() - start_time
         pqueue.put(current_execution_time)
         writer.join()
         if optimize:
