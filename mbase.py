@@ -5,6 +5,7 @@ import os.path
 import pathlib
 import sys
 import time
+import signal
 
 # algorithm
 
@@ -377,11 +378,12 @@ for filename in filenames:
             except KeyboardInterrupt:
                 print('Esecuzione interrotta')
                 interrupted = True
-                sys.exit(0)
             finally:
+                signal.signal(signal.SIGINT, signal.SIG_IGN)
                 dump_out_queue(out_queue, out_file)
                 print('Fine elaborazione %s (%s)' % (matrix_name, 'con preprocessing' if optimize else 'senza preprocessing'))
                 prev_execution_time = execution_time
                 execution_time = time.time() - start_time
                 write_trailer(out_file)
+
         write_epilogue(out_file)
