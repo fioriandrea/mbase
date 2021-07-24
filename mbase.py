@@ -84,7 +84,7 @@ def write_header(out_file):
     print('Elaborazione %s' % ('con preprocessing' if optimize else 'senza preprocessing'), file=out_file)
     print('Matrice: %s' % (matrix_name), file=out_file)
     print('Numero insiemi: %s' % (n_rows), file=out_file)
-    print('Numero elementi dominio: %d' % (n_columns + len(removed_columns)), file=out_file)
+    print('Numero elementi dominio: %d' % (n_columns), file=out_file)
     if optimize:
         print('Numero righe rimosse: %d' % len(removed_rows), file=out_file)
         print('Numero colonne rimosse: %d' % len(removed_columns), file=out_file)
