@@ -205,13 +205,13 @@ def remove_columns(matrix, toremove):
     return toreturn
 
 def compute_output_columns(removed_columns, n_columns):
+    global output_columns
     count_before = 0
-    result = [0] * (n_columns - len(removed_columns))
+    output_columns = [0] * (n_columns - len(removed_columns))
     for i in range(n_columns - len(removed_columns)):
         while i + count_before in removed_columns:
             count_before += 1
-        result[i] = i + count_before
-    return result
+        output_columns[i] = i + count_before
 
 # input parsing
  
@@ -233,7 +233,7 @@ def parse_matrix_file(filename):
         for line in out_file:
             if line.startswith(';;; Map'):
                 line = line[len(';;; Map'):]
-                domain_symbols = parse_mapping(line)
+                parse_domain_symbols(line)
                 continue
             if line.startswith(';;;') or len(line.strip()) == 0:
                 continue
@@ -244,9 +244,9 @@ def parse_matrix_file(filename):
         domain_symbols = [str(i + 1) for i in range(len(matrix[0]))]
     for i in range(len(matrix[0]) - len(domain_symbols)):
         domain_symbols.append('unlisted' + str(i + 1))
-    return matrix
 
-def parse_mapping(line):
+def parse_domain_symbols(line):
+    global domain_symbols
     i = 0
     def skip_spaces():
         nonlocal line
@@ -356,7 +356,7 @@ def sigquit_handler(signal_num, frame):
 signal.signal(signal.SIGQUIT, sigquit_handler)
 
 for filename in filenames:
-    matrix = parse_matrix_file(filename)
+    parse_matrix_file(filename)
     matrix_name = os.path.basename(filename)
     out_queue = deque()
     with open(os.path.join(destination_directory, matrix_name + '.output'), 'w') as out_file:
@@ -372,7 +372,7 @@ for filename in filenames:
             count = 0
             n_rows = len(matrix)
             n_columns = len(matrix[0])
-            output_columns = compute_output_columns(removed_columns, n_columns + len(removed_columns))
+            compute_output_columns(removed_columns, n_columns + len(removed_columns))
             eps_max = n_columns
             min_cardinality = n_columns
             max_cardinality = 0
