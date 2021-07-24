@@ -58,11 +58,12 @@ def output(s):
     global min_cardinality
     global out_file
     global out_queue
+    global out_queue_threshold
     count = count + 1
     min_cardinality = min(min_cardinality, cardinality(s))
     max_cardinality = max(max_cardinality, cardinality(s))
     out_queue.append(s)
-    if len(out_queue) > 100000:
+    if len(out_queue) > out_queue_threshold:
         dump_out_queue(out_queue, out_file)
 
 def write_prelude(out_file):
@@ -115,23 +116,17 @@ def dump_out_queue(out_queue, out_file):
         print(set_to_string(out_queue.popleft()), file=out_file)
 
 def set_to_string(s):
-    global domain_symbols
-    if domain_symbols:
-        return set_to_string_symbols(s)
-    else:
-        return set_to_string_matrix(s)
+    global output_format
+    return output_format(s)
 
 def set_to_string_matrix(s):
     global n_columns
     global removed_columns
     global start_columns_map
     s = {start_columns_map[elem] for elem in s}
-    buffer = [None] * (n_columns + len(removed_columns)) 
-    for i in range(len(buffer)):
-        if i in s:
-            buffer[i] = '1'
-        else:
-            buffer[i] = '0'
+    buffer = ['0'] * (n_columns + len(removed_columns)) 
+    for i in s:
+        buffer[i] = '1'
     return ' '.join(buffer) + ' -'
 
 def set_to_string_symbols(s):
@@ -278,13 +273,24 @@ def print_usage(file=sys.stdout):
 def parse_cli_args():
     global destination_directory
     global filenames
+    global out_queue_threshold
+    global output_format
     i = 1
     try:
         while i < len(sys.argv):
-            if sys.argv[i] == '-d':
+            if sys.argv[i] == '--dir':
                 destination_directory = sys.argv[i + 1]
                 i += 2
-            elif sys.argv[i] == '-h':
+            elif sys.argv[i] == '--qthresh':
+                out_queue_threshold = int(sys.argv[i + 1])
+                i += 2
+            elif sys.argv[i] == '--outmat':
+                output_format = set_to_string_matrix
+                i += 1
+            elif sys.argv[i] == '--outsym':
+                output_format = set_to_string_symbols
+                i += 1
+            elif sys.argv[i] in ('--help', '-h'):
                 print_usage()
                 sys.exit(0)
             else:
@@ -313,6 +319,8 @@ domain_symbols = None
 start_columns_map = None
 execution_time = None
 prev_execution_time = None
+output_format = set_to_string_symbols
+out_queue_threshold = 100000
 destination_directory = '.'
 interrupted = False
 filenames = []
