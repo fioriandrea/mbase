@@ -47,9 +47,6 @@ def set_max(s):
 def succ(n):
     return n + 1
 
-def cardinality(s):
-    return len(s)
-
 # file output
 
 def output(s):
@@ -60,8 +57,8 @@ def output(s):
     global out_queue
     global out_queue_threshold
     count = count + 1
-    min_cardinality = min(min_cardinality, cardinality(s))
-    max_cardinality = max(max_cardinality, cardinality(s))
+    min_cardinality = min(min_cardinality, len(s))
+    max_cardinality = max(max_cardinality, len(s))
     out_queue.append(s)
     if len(out_queue) > out_queue_threshold:
         dump_out_queue(out_queue, out_file)
@@ -104,12 +101,29 @@ def write_trailer(out_file):
     if interrupted:
         print('Esecuzione interrotta prematuramente\n', file=out_file)
     print('Numero hitting set trovati: %d' % (count), file=out_file)
-    print('Cardinalità minima: %d' % (min_cardinality), file=out_file)
-    print('Cardinalità massima: %d' % (max_cardinality), file=out_file)
+    if min_cardinality <= max_cardinality:
+        print('Cardinalità minima: %d' % (min_cardinality), file=out_file)
+        print('Cardinalità massima: %d' % (max_cardinality), file=out_file)
     print('Tempo di esecuzione: %f secondi' % (execution_time), file=out_file)
-    if optimize:
-        print('Guadagno in tempo di esecuzione: %f secondi' % (prev_execution_time - execution_time), file=out_file)
     print('--------------------------------', file=out_file)
+
+def write_epilogue(out_file):
+    global prev_execution_time
+    global execution_time
+    global removed_columns
+    global removed_rows
+    print('', file=out_file)
+    print('Resoconto finale', file=out_file)
+    print('Guadagno in tempo di esecuzione dopo il preprocessing: %f secondi' % (prev_execution_time - execution_time), file=out_file)
+    print('Insieme degli indici di righe rimosse: %s' % (set_to_string_given_symbols(removed_rows, {i: str(i + 1) for i in removed_rows})), file=out_file)
+    print('Insieme delle colonne rimosse: %s' % (set_to_string_given_symbols(removed_columns, domain_symbols)), file=out_file)
+
+def set_to_string_given_symbols(s, symbols):
+    buffer = []
+    for elem in s:
+        symbol = symbols[elem]
+        buffer.append(symbol)
+    return '{' + ','.join(buffer) + '}'
 
 def dump_out_queue(out_queue, out_file):
     while len(out_queue) > 0:
@@ -122,19 +136,19 @@ def set_to_string(s):
 def set_to_string_matrix(s):
     global n_columns
     global removed_columns
-    global start_columns_map
-    s = {start_columns_map[elem] for elem in s}
+    global output_columns
+    s = {output_columns[elem] for elem in s}
     buffer = ['0'] * (n_columns + len(removed_columns)) 
     for i in s:
         buffer[i] = '1'
-    return ' '.join(buffer) + ' -'
+    return ' '.join(buffer) + ' -'  
 
 def set_to_string_symbols(s):
     global domain_symbols
-    global start_columns_map
+    global output_columns
     buffer = []
     for elem in s:
-        index = start_columns_map[elem]
+        index = output_columns[elem]
         symbol = domain_symbols[index]
         buffer.append(symbol)
     return '{' + ','.join(buffer) + '}'
@@ -189,7 +203,7 @@ def remove_columns(matrix, toremove):
             toreturn.append(newrow)
     return toreturn
 
-def map_start_columns(removed_columns, n_columns):
+def compute_output_columns(removed_columns, n_columns):
     count_before = 0
     result = [0] * (n_columns - len(removed_columns))
     for i in range(n_columns - len(removed_columns)):
@@ -316,7 +330,7 @@ optimize = None
 removed_columns = None
 removed_rows = None
 domain_symbols = None
-start_columns_map = None
+output_columns = None
 execution_time = None
 prev_execution_time = None
 output_format = set_to_string_symbols
@@ -350,7 +364,7 @@ for filename in filenames:
             count = 0
             n_rows = len(matrix)
             n_columns = len(matrix[0])
-            start_columns_map = map_start_columns(removed_columns, n_columns + len(removed_columns))
+            output_columns = compute_output_columns(removed_columns, n_columns + len(removed_columns))
             eps_max = n_columns
             min_cardinality = n_columns
             max_cardinality = 0
@@ -370,3 +384,4 @@ for filename in filenames:
                 prev_execution_time = execution_time
                 execution_time = time.time() - start_time
                 write_trailer(out_file)
+        write_epilogue(out_file)
