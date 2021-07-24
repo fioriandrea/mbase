@@ -348,11 +348,18 @@ if len(filenames) == 0:
 
 pathlib.Path(destination_directory).mkdir(parents=True, exist_ok=True) 
 
+def sigquit_handler(signal_num, frame):
+    global interrupted
+    print('Esecuzione interrotta')
+    interrupted = True
+
+signal.signal(signal.SIGQUIT, sigquit_handler)
+
 for filename in filenames:
     matrix = parse_matrix_file(filename)
     matrix_name = os.path.basename(filename)
     out_queue = deque()
-    with open(destination_directory + '/' + matrix_name + '.output', 'w') as out_file:
+    with open(os.path.join(destination_directory, matrix_name + '.output'), 'w') as out_file:
         write_prelude(out_file)
         for optimize in (False, True):
             removed_columns = set()
@@ -370,20 +377,19 @@ for filename in filenames:
             min_cardinality = n_columns
             max_cardinality = 0
             set_list = from_matrix_to_set_list(matrix)
-            start_time = time.time()
-            try:
-                print('Inizio elaborazione %s (%s)' % (matrix_name, 'con preprocessing' if optimize else 'senza preprocessing'))
-                write_header(out_file)
-                mbase(set_list, eps_max)
-            except KeyboardInterrupt:
-                print('Esecuzione interrotta')
-                interrupted = True
-            finally:
-                signal.signal(signal.SIGINT, signal.SIG_IGN)
-                dump_out_queue(out_queue, out_file)
-                print('Fine elaborazione %s (%s)' % (matrix_name, 'con preprocessing' if optimize else 'senza preprocessing'))
-                prev_execution_time = execution_time
-                execution_time = time.time() - start_time
-                write_trailer(out_file)
 
+            start_time = time.time()
+            print('Inizio elaborazione %s (%s)' % (matrix_name, 'con preprocessing' if optimize else 'senza preprocessing'))
+            write_header(out_file)
+
+            mbase(set_list, eps_max)
+
+            dump_out_queue(out_queue, out_file)
+            print('Fine elaborazione %s (%s)' % (matrix_name, 'con preprocessing' if optimize else 'senza preprocessing'))
+            prev_execution_time = execution_time
+            execution_time = time.time() - start_time
+            write_trailer(out_file)
+            
+            if interrupted:
+                sys.exit(0)
         write_epilogue(out_file)
