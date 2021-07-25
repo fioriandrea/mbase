@@ -113,9 +113,13 @@ def write_epilogue(out_file):
     global execution_time
     global removed_columns
     global removed_rows
+    global count
+    global prev_count
     print('', file=out_file)
     print('Resoconto finale', file=out_file)
     print('Guadagno in tempo di esecuzione dopo il preprocessing: %f secondi' % (prev_execution_time - execution_time), file=out_file)
+    print('Numero insiemi trovati senza preprocessing: %d' % (prev_count), file=out_file)
+    print('Numero insiemi trovati con preprocessing: %d' % (count), file=out_file)
     print('Insieme degli indici di righe rimosse: %s' % (set_to_string_given_symbols(removed_rows, {i: str(i + 1) for i in removed_rows})), file=out_file)
     print('Insieme delle colonne rimosse: %s' % (set_to_string_given_symbols(removed_columns, domain_symbols)), file=out_file)
 
@@ -160,10 +164,10 @@ def rows_to_remove(matrix):
     result = set()
     for i, row in enumerate(matrix):
         toremove = False
-        for other in matrix:
-            if other == row:
+        for j, other in enumerate(matrix):
+            if i == j:
                 continue
-            if is_subset(row, other):
+            if is_subset(other, row):
                 toremove = True
                 break
         if toremove:
@@ -333,6 +337,7 @@ removed_rows = None
 domain_symbols = None
 output_columns = None
 execution_time = None
+prev_count = None
 prev_execution_time = None
 output_format = set_to_string_symbols
 out_queue_threshold = 100000
@@ -362,6 +367,7 @@ for filename in filenames:
                 matrix = remove_rows(matrix, removed_rows)
                 removed_columns = columns_to_remove(matrix)
                 matrix = remove_columns(matrix, removed_columns)
+            prev_count = count
             count = 0
             n_rows = len(matrix)
             n_columns = len(matrix[0])
@@ -388,4 +394,5 @@ for filename in filenames:
                 execution_time = time.time() - start_time
                 write_trailer(out_file)
                 signal.signal(signal.SIGINT, prev_sig_handler)
+        print('Numero di insiemi trovati uguali: %r\n' % (prev_count == count))
         write_epilogue(out_file)
