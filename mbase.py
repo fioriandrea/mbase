@@ -287,7 +287,15 @@ def parse_domain_symbols(line):
 
 def print_usage(file=sys.stdout):
     global progname
+    global out_queue_threshold
     print("usage: %s [OPTIONS] FILE..." % (progname), file=file)
+    print("""
+--dir        Destination directory for output files (defaults to current directory)
+--qthresh    Maximum size of the output queue (defaults to %s)
+--outmat     Output MHS in matrix form
+--outsym     Output MHS in set notation form (default)
+--help|-h    Print this help
+""" % (out_queue_threshold,), end='', file=file)
 
 def parse_cli_args():
     global destination_directory
