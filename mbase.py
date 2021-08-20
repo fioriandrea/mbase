@@ -241,7 +241,7 @@ def parse_matrix_file(filename):
                 continue
             if line.startswith(';;;') or len(line.strip()) == 0:
                 continue
-            row = line.strip().split(' ')[:-1]
+            row = line.strip().split(' ')[:-1] # remove spaces and trailing '-'
             row = [int(x) for x in row]
             matrix.append(row)
     if domain_symbols == None:
