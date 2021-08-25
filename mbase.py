@@ -247,7 +247,10 @@ def parse_matrix_file(filename):
     if domain_symbols == None:
         domain_symbols = [str(i + 1) for i in range(len(matrix[0]))]
     for i in range(len(matrix[0]) - len(domain_symbols)):
-        domain_symbols.append('unlisted' + str(i + 1))
+        unlisted_str = 'unlisted'
+        while unlisted_str + str(i + 1) in domain_symbols:
+            unlisted_str = unlisted_str + '_'
+        domain_symbols.append(unlisted_str + str(i + 1))
 
 def parse_domain_symbols(line):
     global domain_symbols
