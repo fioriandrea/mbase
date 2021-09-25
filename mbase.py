@@ -1,5 +1,9 @@
 #! /usr/bin/python
 
+# Copyright (C) 2021 Andrea Fiori <andrea.fiori.1998@gmail.com>
+
+# Licensed under GPLv3, see file LICENSE in this source tree.
+
 from collections import deque
 import os.path
 import pathlib
