@@ -234,12 +234,13 @@ def from_matrix_to_set_list(matrix):
     return set_list
 
 def parse_matrix_file(filename):
+    global numeric_symbols
     global domain_symbols
     global matrix
     matrix = []
     with open(filename, 'r') as out_file:
         for line in out_file:
-            if line.startswith(';;; Map'):
+            if line.startswith(';;; Map') and not numeric_symbols:
                 line = line[len(';;; Map'):]
                 parse_domain_symbols(line)
                 continue
@@ -297,11 +298,13 @@ def print_usage(file=sys.stdout):
     global out_queue_threshold
     print("usage: %s [OPTIONS] FILE..." % (progname), file=file)
     print("""
---dir        Destination directory for output files (defaults to current directory)
---qthresh    Maximum size of the output queue (defaults to %s)
---outmat     Output MHS in matrix form
---outsym     Output MHS in set notation form (default)
---help|-h    Print this help
+--dir               Destination directory for output files (defaults to current directory)
+--qthresh           Maximum size of the output queue (defaults to %s)
+--outmat            Output MHS in matrix form (implies --numericsym)
+--numericsym        Use numbers instead of symbols (given in the ;; Map line) for set notation. Default when no ;; Map line is given
+--nonumericsym      Undo --numericsym
+--outsym            Output MHS in set notation form (default)
+--help|-h           Print this help
 """ % (out_queue_threshold,), end='', file=file)
 
 def parse_cli_args():
@@ -309,6 +312,7 @@ def parse_cli_args():
     global filenames
     global out_queue_threshold
     global output_format
+    global numeric_symbols
     i = 1
     try:
         while i < len(sys.argv):
@@ -320,6 +324,13 @@ def parse_cli_args():
                 i += 2
             elif sys.argv[i] == '--outmat':
                 output_format = set_to_string_matrix
+                numeric_symbols = True
+                i += 1
+            elif sys.argv[i] == '--numericsym':
+                numeric_symbols = True
+                i += 1
+            elif sys.argv[i] == '--nonumericsym':
+                numeric_symbols = False
                 i += 1
             elif sys.argv[i] == '--outsym':
                 output_format = set_to_string_symbols
@@ -350,6 +361,7 @@ optimize = None
 removed_columns = None
 removed_rows = None
 domain_symbols = None
+numeric_symbols = False
 output_columns = None
 execution_time = None
 prev_count = None
@@ -363,7 +375,7 @@ filenames = []
 parse_cli_args()
 
 if len(filenames) == 0:
-    print("usage: %s [OPTIONS] FILE..." % (progname), file=sys.stderr)
+    print_usage(file=sys.stderr)
     sys.exit(1)
 
 pathlib.Path(destination_directory).mkdir(parents=True, exist_ok=True) 
