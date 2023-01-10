@@ -1,6 +1,7 @@
 #! /usr/bin/python
 
 # Copyright (C) 2021 Andrea Fiori <andrea.fiori.1998@gmail.com>
+# Copyright (C) 2021 Marco Castelli <m.castelli013@studenti.unibs.it>
 
 # Licensed under GPLv3, see file LICENSE in this source tree.
 
